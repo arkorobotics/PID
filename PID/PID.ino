@@ -9,35 +9,37 @@ const byte ledPin = 13;
 #define TICK_NULL 0
 #define TICK_A 1
 #define TICK_B 2
-#define FORWARD false
-#define BACKWARD true
+#define FORWARD 0
+#define BACKWARD 1
 const byte encoder_A_pin = 2;
 const byte encoder_B_pin = 3;
-volatile unsigned char last_tick = TICK_NULL;
-long position_ticks = 0;
-unsigned long current_time = 0;
-unsigned long last_time = 0;
+volatile static unsigned char last_tick_a = TICK_NULL;
+volatile static unsigned char last_tick_b = TICK_NULL;
+volatile long position_ticks = 0;
+volatile unsigned long current_time = 0;
+volatile unsigned long last_time = 0;
 
 // State Variables
-float position = 0.0; // degrees
-float velocity = 0.0; // rpm
+volatile static unsigned char cmd_direction = FORWARD;
+volatile float position = 0.0; // degrees
+volatile float velocity = 0.0; // rpm
 
 // PID Variables
-float target = 0.5; 
-float P_gain = 1;
-float I_gain = 0.01;
-float D_gain = 0;
-float error = 0;
-float last_error = 0;
-float sum_of_error = 0;
-float pid_output = 0;
+volatile const float target = 90.0; 
+volatile float P_gain = 0.01;
+volatile float I_gain = 0.001;
+volatile float D_gain = 0;
+volatile float error = 0;
+volatile float last_error = 0;
+volatile float sum_of_error = 0;
+volatile float pid_output = 0;
 
 // Motor Variables
-byte AI0_pin = 6;
-byte AI1_pin = 7; 
-byte motor_pin = 5;
-byte motor_output = 0;
-volatile boolean direction = FORWARD;
+const byte AI0_pin = 6;
+const byte AI1_pin = 7; 
+const byte motor_pin = 9;
+volatile static unsigned char motor_output = 0;
+volatile static unsigned char read_direction = FORWARD;
 
 // Runs first and once
 void setup() 
@@ -45,6 +47,9 @@ void setup()
   pinMode(ledPin, OUTPUT);
   
   // Setup encoder interrupt routines
+  last_tick_a = digitalRead(encoder_A_pin) ? 1 : 0;
+  last_tick_b = digitalRead(encoder_B_pin) ? 1 : 0;
+
   pinMode(encoder_A_pin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(encoder_A_pin), encoderTickA, CHANGE);
 
@@ -64,19 +69,19 @@ void setup()
 // Main Loop
 void loop() 
 {
-  digitalWrite(ledPin, direction);
-
+  digitalWrite(ledPin, read_direction);
+  
   // Update Position and Velocity
   position = ((float)position_ticks)*(360/1800.0);
   velocity = (0.000555)/(0.000001*((float)(current_time - last_time + 1)));
 
   // PID Calculations
   last_error = error;           // Store the last error for derivative
-  error = target - velocity;    // Calculate new velocity error
+  error = target - position;    // Calculate new velocity error
   sum_of_error = sum_of_error + error;    // Accumulate error
-  if(sum_of_error > 1023)                 // Saturate to prevent large I term
+  if(sum_of_error > 1000)                 // Saturate to prevent large I term
   {
-    sum_of_error = 1023;
+    sum_of_error = 1000;
   }
   
   // PID Control
@@ -86,77 +91,89 @@ void loop()
   {
     pid_output = 1.0;
   }
-  else if(pid_output < -1.0)
+  if(pid_output < -1.0)
   {
     pid_output = -1.0;
   }
 
-  if(pid_output >= 0)                               // Set direction
+  if(pid_output >= 0.0 && cmd_direction == BACKWARD)                               // Set direction
   {
     setDirection(FORWARD);
   }
-  else if(pid_output < 0)
+  if(pid_output < 0.0 && cmd_direction == FORWARD)
   {
     setDirection(BACKWARD);
   }
-
-  motor_output = (unsigned char)(255.0*abs(pid_output)); // Calculate
-
-  analogWrite(motor_pin, motor_output);             // Apply output to motor 
+  
+  motor_output = (unsigned char)(254.0*abs(pid_output)); // Calculate
+  analogWrite(motor_pin, motor_output);                  // Apply output to motor 
   
   // Print out data
   Serial.print(target);
   Serial.print(" ");
-  Serial.println(velocity);
-
+  Serial.println(error);
+  //Serial.print(" ")
+  //Serial.println(motor_output);
+  
   delay(50);
 }
 
-void setDirection(boolean input_direction)
+void setDirection(unsigned char input_direction)
 {
   // Set Motor Direction
-  digitalWrite(AI0_pin, input_direction);
-  digitalWrite(AI1_pin, !input_direction);
+  cmd_direction = input_direction ? 1 : 0;
+  digitalWrite(AI0_pin, cmd_direction);
+  digitalWrite(AI1_pin, (~cmd_direction & 0x01));
 }
 
 void encoderTickA() 
 {
-  last_time = current_time;
-  current_time = micros();
-  
-  if(last_tick == TICK_A) 
-  {
-    direction = !direction;
-  }
-  last_tick = TICK_A;
+  unsigned char tick_a = digitalRead(encoder_A_pin) ? 1 : 0;
+  unsigned char tick_b = digitalRead(encoder_B_pin) ? 1 : 0;
 
-  if(direction == FORWARD) 
+  unsigned char plus = tick_a ^ last_tick_b;
+  unsigned char minus = tick_b ^ last_tick_a;
+
+  if(plus) 
   {
-    position_ticks++;    
+    position_ticks++;
+    read_direction = FORWARD;    
   }
-  else if(direction == BACKWARD) 
+  if(minus) 
   {
     position_ticks--;
+    read_direction = BACKWARD;
   }
+
+  last_tick_a = tick_a;
+  last_tick_b = tick_b;
+
+  last_time = current_time;
+  current_time = micros();
 }
 
 void encoderTickB() 
 {
-  last_time = current_time;
-  current_time = micros();
+  unsigned char tick_a = digitalRead(encoder_A_pin) ? 1 : 0;
+  unsigned char tick_b = digitalRead(encoder_B_pin) ? 1 : 0;
 
-  if(last_tick == TICK_B)
-  {
-    direction = !direction;
-  }
-  last_tick = TICK_B;
+  unsigned char plus = tick_a ^ last_tick_b;
+  unsigned char minus = tick_b ^ last_tick_a;
 
-  if(direction == FORWARD) 
+  if(plus) 
   {
-    position_ticks++;    
+    position_ticks++;
+    read_direction = FORWARD;    
   }
-  else if(direction == BACKWARD) 
+  if(minus) 
   {
     position_ticks--;
+    read_direction = BACKWARD;
   }
+
+  last_tick_a = tick_a;
+  last_tick_b = tick_b;
+
+  last_time = current_time;
+  current_time = micros();
 }
