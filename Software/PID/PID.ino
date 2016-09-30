@@ -11,8 +11,8 @@ const byte ledPin = 13;
 #define TICK_B 2
 #define FORWARD 0
 #define BACKWARD 1
-const byte encoder_A_pin = 2;
-const byte encoder_B_pin = 3;
+const byte encoder_A_pin = 3;
+const byte encoder_B_pin = 2;
 volatile static unsigned char last_tick_a = TICK_NULL;
 volatile static unsigned char last_tick_b = TICK_NULL;
 volatile long position_ticks = 0;
@@ -122,8 +122,8 @@ void setDirection(unsigned char input_direction)
 {
   // Set Motor Direction
   cmd_direction = input_direction ? 1 : 0;
-  digitalWrite(AI0_pin, cmd_direction);
-  digitalWrite(AI1_pin, (~cmd_direction & 0x01));
+  digitalWrite(AI0_pin, (~cmd_direction & 0x01));
+  digitalWrite(AI1_pin, cmd_direction);
 }
 
 void encoderTickA() 
