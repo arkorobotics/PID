@@ -1,6 +1,8 @@
 # PID Simulator
 
-In this iPython notebook, we explore PID tuning methods by modeling a system and applying a PID controller with variable gains. Using the provided methods, students will learn to tune the system response and stability.
+In this iPython notebook, we explore PID controllers and gain tuning methods. 
+
+We first start by modeling our system, then by applying PID controllers to compensate for error. Using the tuning methods provided in our documentation, students will learn how to tune the PID gain values to optimize for rise time, overshoot, settle time, steady-state error, and stability.
 
 ## Installation
 
