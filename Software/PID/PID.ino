@@ -28,7 +28,7 @@ volatile float velocity = 0.0; // rpm
 volatile const float target = 90.0; 
 volatile float P_gain = 0.01;
 volatile float I_gain = 0.001;
-volatile float D_gain = 0;
+volatile float D_gain = 0.00;
 volatile float error = 0;
 volatile float last_error = 0;
 volatile float sum_of_error = 0;
@@ -76,18 +76,19 @@ void loop()
   velocity = (0.000555)/(0.000001*((float)(current_time - last_time + 1)));
 
   // PID Calculations
-  last_error = error;           // Store the last error for derivative
-  error = target - position;    // Calculate new velocity error
-  sum_of_error = sum_of_error + error;    // Accumulate error
-  if(sum_of_error > 1000)                 // Saturate to prevent large I term
+  last_error = error;           // Store the last error for derivative term
+  error = target - position;    // Calculate new error
+  sum_of_error = sum_of_error + error;    // Accumulate error for integral term
+  if(sum_of_error > 1000)                 // Saturate to prevent large integral term
   {
     sum_of_error = 1000;
   }
   
-  // PID Control
-  pid_output = P_gain*error + I_gain*sum_of_error;  // PID
+  // PID Controller
+  pid_output = P_gain*error + I_gain*sum_of_error + D_gain*(error - last_error);
 
-  if(pid_output > 1.0)                              // Hard limit PID output
+  // Hard limit PID output
+  if(pid_output > 1.0)                                   
   {
     pid_output = 1.0;
   }
@@ -96,7 +97,7 @@ void loop()
     pid_output = -1.0;
   }
 
-  if(pid_output >= 0.0 && cmd_direction == BACKWARD)                               // Set direction
+  if(pid_output >= 0.0 && cmd_direction == BACKWARD)     // Set direction
   {
     setDirection(FORWARD);
   }
@@ -108,14 +109,18 @@ void loop()
   motor_output = (unsigned char)(254.0*abs(pid_output)); // Calculate
   analogWrite(motor_pin, motor_output);                  // Apply output to motor 
   
-  // Print out data
+  // Print out data for plotting
   Serial.print(target);
   Serial.print(" ");
   Serial.println(error);
-  //Serial.print(" ")
-  //Serial.println(motor_output);
   
-  delay(50);
+  delay(50);  // 20Hz Update Rate
+              // Do not change this time delay. Changing this time delay
+              // will effect the controller and the response of the system, given
+              // a set of PID gain values. 
+              //
+              // TODO: This loop should actually be in a timer interrupt
+              // with a fixed/non-maskable update rate. 
 }
 
 void setDirection(unsigned char input_direction)
@@ -131,6 +136,7 @@ void encoderTickA()
   unsigned char tick_a = digitalRead(encoder_A_pin) ? 1 : 0;
   unsigned char tick_b = digitalRead(encoder_B_pin) ? 1 : 0;
 
+  // XOR ticks to find direction
   unsigned char plus = tick_a ^ last_tick_b;
   unsigned char minus = tick_b ^ last_tick_a;
 
@@ -157,6 +163,7 @@ void encoderTickB()
   unsigned char tick_a = digitalRead(encoder_A_pin) ? 1 : 0;
   unsigned char tick_b = digitalRead(encoder_B_pin) ? 1 : 0;
 
+  // XOR ticks to find direction
   unsigned char plus = tick_a ^ last_tick_b;
   unsigned char minus = tick_b ^ last_tick_a;
 
