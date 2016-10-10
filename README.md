@@ -1,9 +1,9 @@
 # PID
 
-This respository is intended for teaching the general public about PID controllers and gain tuning methods.
+This project is intended for teaching the general public about PID controllers and gain tuning methods.
 
-To better understand PID, we build a simple mechanical system using a metal bar mounted to the output shaft of a motor. This bar serves as a disturbance to the motor during operation.
+In order to better understand PID, users are encouraged to build a simple electromechanical system consisting of a motor, a motor driver, an encoder, and a microcontroller. The system is then made unbalanced by mounting a metal bar at the end of the motors output shaft, making it difficult to maintain a constant position or velocity. This is where PID controllers come into play. Using the code provided in this repository, users can implement a PID controller in software, and easily tune the gain values to stabilize the system such that it maintains a desired position or velocity.
 
-By using a microcontoller, encoder, and motor driver, we are able measure the position and velocity of the motors output shaft. From there, we implement a PID controller to maintain a desired position or velocity.
+In this repository you will find the necessary hardware, software, and schematics to build this system.
 
 ![PID Setup](/Documents/PID_Setup.jpg?raw=true "PID Setup")
